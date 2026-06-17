@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revenue Leak Audit | 4THDMC | EVOLVE LLC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#f4f3f0;color:#1a1a1a;min-height:100vh;padding:2rem 1rem}
+.container{max-width:860px;margin:0 auto}
+.header{text-align:center;margin-bottom:2rem}
+.brand{font-size:11px;font-weight:600;letter-spacing:.1em;color:#C9A84C;margin-bottom:8px}
+.header h1{font-size:30px;font-weight:700;color:#1B3A6B;margin-bottom:6px}
+.header p{font-size:14px;color:#666;line-height:1.6;max-width:560px;margin:0 auto}
+
+/* API KEY GATE */
+.key-gate{background:#fff;border-radius:10px;border:1.5px solid #C9A84C;padding:1.5rem;margin-bottom:1.5rem}
+.key-gate-label{font-size:11px;font-weight:600;letter-spacing:.08em;color:#C9A84C;margin-bottom:8px}
+.key-gate-title{font-size:15px;font-weight:600;color:#1B3A6B;margin-bottom:6px}
+.key-gate-sub{font-size:13px;color:#888;margin-bottom:1rem;line-height:1.5}
+.key-row{display:flex;gap:8px;align-items:center}
+.key-input{flex:1;padding:10px 14px;border:1.5px solid #e8e8e4;border-radius:7px;font-size:14px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
+.key-input:focus{border-color:#1B3A6B}
+.key-input.active{border-color:#1B3A6B;background:#f0f4fb}
+.key-btn{padding:10px 18px;border-radius:7px;border:none;background:#1B3A6B;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap}
+.key-btn:hover{background:#152e56}
+.key-status{font-size:12px;margin-top:8px;min-height:16px}
+.key-status.ok{color:#166534}
+.key-status.err{color:#dc2626}
+
+/* CLIENT INFO */
+.client-bar{background:#fff;border-radius:10px;border:1px solid #e8e8e4;padding:1.25rem 1.5rem;margin-bottom:1rem}
+.client-bar-label{font-size:11px;font-weight:600;letter-spacing:.08em;color:#1B3A6B;margin-bottom:10px}
+.client-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:500px){.client-row{grid-template-columns:1fr}}
+.client-field label{display:block;font-size:12px;font-weight:500;color:#555;margin-bottom:4px}
+.client-field input{width:100%;padding:9px 12px;border:1.5px solid #e8e8e4;border-radius:7px;font-size:14px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
+.client-field input:focus{border-color:#1B3A6B}
+
+/* ASSUMPTION TOGGLE */
+.assumption-bar{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:2rem;background:#fff;padding:14px 20px;border-radius:10px;border:1px solid #e8e8e4;flex-wrap:wrap}
+.assumption-label{font-size:13px;font-weight:600;color:#555}
+.toggle-group{display:flex;gap:6px}
+.toggle-btn{padding:7px 16px;border-radius:6px;border:1.5px solid #e8e8e4;background:transparent;font-size:13px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;color:#666;transition:all .15s}
+.toggle-btn:hover{border-color:#C9A84C}
+.toggle-btn.active{background:#1B3A6B;color:#fff;border-color:#1B3A6B}
+.toggle-btn.active.moderate{background:#C9A84C;border-color:#C9A84C}
+.toggle-btn.active.aggressive{background:#8B1A1A;border-color:#8B1A1A}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+.card{background:#fff;border-radius:10px;border:1px solid #e8e8e4;padding:1.25rem 1.5rem}
+.card-label{font-size:11px;font-weight:600;letter-spacing:.08em;color:#C9A84C;margin-bottom:8px}
+.card h3{font-size:15px;font-weight:600;color:#1B3A6B;margin-bottom:1rem}
+.field{margin-bottom:1rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:12px;font-weight:500;color:#555;margin-bottom:5px}
+.field input[type=number]{width:100%;padding:9px 12px;border:1.5px solid #e8e8e4;border-radius:7px;font-size:14px;font-family:'Inter',sans-serif;color:#1a1a1a;outline:none;transition:border-color .15s}
+.field input[type=number]:focus{border-color:#1B3A6B}
+.field input[type=number]::placeholder{color:#bbb}
+.sel-group{display:flex;flex-direction:column;gap:6px}
+.sel-opt{display:flex;align-items:center;gap:9px;padding:8px 12px;border:1.5px solid #e8e8e4;border-radius:7px;cursor:pointer;transition:border-color .15s,background .15s;user-select:none;font-size:13px;color:#2a2a2a}
+.sel-opt:hover{border-color:#C9A84C;background:#fdfcf8}
+.sel-opt.sel{border-color:#1B3A6B;background:#f0f4fb}
+.sel-dot{width:14px;height:14px;border:2px solid #ccc;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.sel-opt.sel .sel-dot{border-color:#1B3A6B;background:#1B3A6B}
+.sel-inner{width:7px;height:7px;background:#fff;border-radius:50%;display:none}
+.sel-opt.sel .sel-inner{display:block}
+.assumption-note{font-size:11px;color:#999;margin-top:6px;font-style:italic}
+
+.calc-wrap{text-align:center;margin:1.5rem 0}
+.calc-btn{background:#1B3A6B;color:#fff;border:none;border-radius:8px;padding:14px 40px;font-size:15px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:background .15s}
+.calc-btn:hover{background:#152e56}
+
+#results{display:none}
+.results-header{text-align:center;margin-bottom:1.5rem}
+.results-header h2{font-size:22px;font-weight:700;color:#1B3A6B;margin-bottom:4px}
+.results-header p{font-size:13px;color:#888}
+.results-client{font-size:14px;font-weight:600;color:#1B3A6B;margin-top:4px}
+
+/* DISCLAIMER */
+.disclaimer{background:#fefaf0;border:1px solid #f0dfa0;border-radius:8px;padding:10px 14px;margin-bottom:1.25rem;font-size:12px;color:#7a6010;line-height:1.6}
+
+.leak-card{background:#fff;border-radius:10px;border:1px solid #e8e8e4;padding:1.25rem 1.5rem;margin-bottom:10px}
+.leak-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.leak-name{font-size:15px;font-weight:600;color:#1B3A6B}
+.leak-amounts{text-align:right}
+.leak-monthly{font-size:13px;color:#888}
+.leak-annual{font-size:18px;font-weight:700;color:#1B3A6B}
+.leak-badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;margin-bottom:8px}
+.badge-high{background:#fde8e8;color:#8B1A1A}
+.badge-medium{background:#fef3e2;color:#92400e}
+.badge-directional{background:#e8edf5;color:#1B3A6B}
+.leak-ai{font-size:13px;color:#555;line-height:1.6;border-left:3px solid #C9A84C;padding-left:10px;margin-bottom:8px}
+.leak-assumption{font-size:11px;color:#aaa;font-style:italic}
+.leak-service{font-size:11px;font-weight:600;color:#C9A84C;margin-top:6px}
+
+.totals-card{background:#1B3A6B;border-radius:10px;padding:1.75rem 2rem;margin:1.5rem 0;color:#fff}
+.totals-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:500px){.totals-grid{grid-template-columns:1fr}}
+.total-lbl{font-size:11px;font-weight:600;letter-spacing:.08em;color:#C9A84C;margin-bottom:4px}
+.total-amt{font-size:32px;font-weight:700;color:#fff}
+.total-sub{font-size:12px;color:rgba(255,255,255,.6);margin-top:2px}
+.totals-closing{text-align:center;margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid rgba(255,255,255,.15);font-size:15px;font-weight:600;color:#C9A84C;letter-spacing:.02em}
+
+.synthesis-card{background:#fff;border-radius:10px;border:1.5px solid #C9A84C;padding:1.5rem;margin-bottom:1rem}
+.synthesis-label{font-size:11px;font-weight:600;letter-spacing:.08em;color:#C9A84C;margin-bottom:8px}
+.synthesis-text{font-size:14px;color:#2a2a2a;line-height:1.7}
+
+.priority-card{background:#f8f7f4;border-radius:10px;padding:1.25rem 1.5rem;margin-bottom:1rem}
+.priority-label{font-size:11px;font-weight:600;letter-spacing:.08em;color:#1B3A6B;margin-bottom:10px}
+.priority-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.priority-num{width:24px;height:24px;border-radius:50%;background:#1B3A6B;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.priority-text{font-size:13px;color:#2a2a2a}
+.priority-offer{font-size:11px;color:#C9A84C;font-weight:600}
+
+.notes-card{background:#fff;border-radius:10px;border:1px solid #e8e8e4;padding:1.25rem 1.5rem;margin-bottom:1rem}
+.notes-label{font-size:11px;font-weight:600;letter-spacing:.08em;color:#555;margin-bottom:8px}
+.notes-area{width:100%;min-height:100px;border:1.5px solid #e8e8e4;border-radius:7px;padding:10px 12px;font-size:13px;font-family:'Inter',sans-serif;color:#1a1a1a;resize:vertical;outline:none}
+.notes-area:focus{border-color:#1B3A6B}
+.notes-area::placeholder{color:#bbb}
+
+.actions{display:flex;gap:10px;justify-content:center;margin-top:1rem;flex-wrap:wrap}
+.action-btn{padding:10px 22px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;border:1.5px solid #e8e8e4;background:#fff;color:#555}
+.action-btn:hover{background:#f5f5f3}
+.action-btn.primary{background:#1B3A6B;color:#fff;border-color:#1B3A6B}
+.action-btn.primary:hover{background:#152e56}
+
+.loader{text-align:center;padding:2rem;display:none}
+.spinner{width:30px;height:30px;border:3px solid #e8e8e4;border-top-color:#1B3A6B;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 1rem}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-txt{font-size:14px;color:#888}
+
+.footer{text-align:center;margin-top:2rem;font-size:11px;color:#bbb}
+
+@media print{
+  body{background:#fff;padding:0}
+  .key-gate,.assumption-bar,.calc-wrap,.actions,.notes-card,.client-bar{display:none!important}
+  .card,.leak-card,.totals-card,.synthesis-card,.priority-card{break-inside:avoid}
+  .print-header{display:block!important}
+}
+.print-header{display:none;text-align:center;margin-bottom:1.5rem}
+.print-header .ph-brand{font-size:11px;font-weight:600;letter-spacing:.1em;color:#C9A84C;margin-bottom:4px}
+.print-header .ph-title{font-size:20px;font-weight:700;color:#1B3A6B;margin-bottom:2px}
+.print-header .ph-client{font-size:14px;color:#555}
+.print-header .ph-date{font-size:12px;color:#999}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="print-header" id="print-header">
+    <div class="ph-brand">4THDMC | EVOLVE LLC — BEGIN ENGAGEMENT</div>
+    <div class="ph-title">Revenue Leak Audit</div>
+    <div class="ph-client" id="ph-client"></div>
+    <div class="ph-date" id="ph-date"></div>
+  </div>
+
+  <div class="header">
+    <div class="brand">4THDMC | EVOLVE LLC — CONSULTANT MODE</div>
+    <h1>Revenue Leak Audit</h1>
+    <p>A conservative estimate of where revenue may be leaving the business through slow follow-up, missed recovery, and inconsistent systems.</p>
+  </div>
+
+  <!-- ACCESS GATE -->
+  <div class="key-gate" id="key-gate">
+    <div class="key-gate-label">INTERNAL ACCESS</div>
+    <div class="key-gate-title">Enter Access Code</div>
+    <div class="key-gate-sub">Internal consultant tool. Enter your access code to continue.</div>
+    <div class="key-row">
+      <input type="password" class="key-input" id="access-code-input" placeholder="Access code" onkeydown="if(event.key==='Enter')checkAccess()">
+      <button class="key-btn" onclick="checkAccess()">Enter</button>
+    </div>
+    <div class="key-status" id="key-status"></div>
+  </div>
+
+  <!-- CLIENT INFO -->
+  <div class="client-bar" id="client-bar" style="display:none">
+    <div class="client-bar-label">CLIENT INFORMATION</div>
+    <div class="client-row">
+      <div class="client-field">
+        <label>Client name</label>
+        <input type="text" id="client-name" placeholder="First and last name">
+      </div>
+      <div class="client-field">
+        <label>Business name</label>
+        <input type="text" id="client-biz" placeholder="Business name">
+      </div>
+    </div>
+  </div>
+
+  <div id="main-content" style="display:none">
+
+  <!-- ASSUMPTION TOGGLE -->
+  <div class="assumption-bar">
+    <span class="assumption-label">Assumption Mode:</span>
+    <div class="toggle-group">
+      <button class="toggle-btn active" id="t-conservative" onclick="setMode('conservative')">Conservative</button>
+      <button class="toggle-btn moderate" id="t-moderate" onclick="setMode('moderate')">Moderate</button>
+      <button class="toggle-btn aggressive" id="t-aggressive" onclick="setMode('aggressive')">Aggressive</button>
+    </div>
+    <span id="mode-desc" style="font-size:12px;color:#999;margin-left:8px">Lowest defensible estimates</span>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-label">BUSINESS CONTEXT</div>
+      <h3>About the Business</h3>
+      <div class="field">
+        <label>Average job / service value ($)</label>
+        <input type="number" id="job-value" placeholder="e.g. 500" min="0">
+      </div>
+      <div class="field">
+        <label>New leads or inquiries per month</label>
+        <input type="number" id="leads-month" placeholder="e.g. 40" min="0">
+      </div>
+      <div class="field">
+        <label>Completed jobs / customers per month</label>
+        <input type="number" id="jobs-month" placeholder="e.g. 25" min="0">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">LEAD RESPONSE</div>
+      <h3>How Fast Do You Respond to New Leads?</h3>
+      <p style="font-size:11px;color:#aaa;margin:-4px 0 12px;line-height:1.5;font-style:italic;">Covers initial contact only — leads that went cold before ever receiving an estimate.</p>
+      <div class="sel-group" id="response-speed">
+        <div class="sel-opt" data-val="under5"><div class="sel-dot"><div class="sel-inner"></div></div>Under 5 minutes — automated</div>
+        <div class="sel-opt" data-val="1hour"><div class="sel-dot"><div class="sel-inner"></div></div>Within 1 hour</div>
+        <div class="sel-opt" data-val="sameday"><div class="sel-dot"><div class="sel-inner"></div></div>Same day</div>
+        <div class="sel-opt" data-val="1to2days"><div class="sel-dot"><div class="sel-inner"></div></div>1–2 days</div>
+        <div class="sel-opt sel" data-val="inconsistent"><div class="sel-dot"><div class="sel-inner"></div></div>Inconsistent / some fall through</div>
+      </div>
+      <div class="assumption-note" id="response-note">Assumes 35% of leads lost to slow response</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">ESTIMATES & PROPOSALS</div>
+      <h3>Unchased Estimate Loss</h3>
+      <p style="font-size:11px;color:#aaa;margin:-4px 0 12px;line-height:1.5;font-style:italic;">Covers estimates already sent that went cold — separate from Lead Response Loss, which covers contacts who never became an estimate.</p>
+      <div class="field">
+        <label>Estimates or quotes sent per month</label>
+        <input type="number" id="estimates-month" placeholder="e.g. 20" min="0">
+      </div>
+      <div class="field">
+        <label>Average estimate value ($)</label>
+        <input type="number" id="estimate-value" placeholder="e.g. 800" min="0">
+      </div>
+      <div class="field">
+        <label>Percent of estimates never followed up (%)</label>
+        <input type="number" id="estimate-nofollowup" placeholder="e.g. 40" min="0" max="100">
+      </div>
+      <div class="assumption-note" id="estimate-note">Assumes 15% recoverable opportunity rate on unchased estimate value</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">APPOINTMENTS</div>
+      <h3>No-Show & Cancellation Loss</h3>
+      <div class="field">
+        <label>No-shows or cancellations per month</label>
+        <input type="number" id="noshows" placeholder="e.g. 4" min="0">
+      </div>
+      <div class="field">
+        <label>Average appointment value ($)</label>
+        <input type="number" id="appt-value" placeholder="e.g. 200" min="0">
+      </div>
+      <div class="field">
+        <label>Ability to refill cancelled slots</label>
+        <div class="sel-group" id="refill-ability">
+          <div class="sel-opt" data-val="often"><div class="sel-dot"><div class="sel-inner"></div></div>Often refill</div>
+          <div class="sel-opt sel" data-val="sometimes"><div class="sel-dot"><div class="sel-inner"></div></div>Sometimes refill</div>
+          <div class="sel-opt" data-val="rarely"><div class="sel-dot"><div class="sel-inner"></div></div>Rarely refill</div>
+        </div>
+      </div>
+      <div class="assumption-note" id="noshows-note">Assumes 50% of unrecovered cancellations are lost revenue</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">REFERRALS</div>
+      <h3>Referral Gap Loss</h3>
+      <div class="field">
+        <label>How often do you ask for referrals?</label>
+        <div class="sel-group" id="referral-ask">
+          <div class="sel-opt" data-val="always"><div class="sel-dot"><div class="sel-inner"></div></div>Every time — consistently</div>
+          <div class="sel-opt" data-val="sometimes"><div class="sel-dot"><div class="sel-inner"></div></div>Sometimes</div>
+          <div class="sel-opt sel" data-val="rarely"><div class="sel-dot"><div class="sel-inner"></div></div>Rarely</div>
+          <div class="sel-opt" data-val="never"><div class="sel-dot"><div class="sel-inner"></div></div>Never</div>
+        </div>
+      </div>
+      <div class="assumption-note" id="referral-note">Assumes 5% referral rate if asked, 35% close rate on referrals</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">ONLINE REPUTATION</div>
+      <h3>Review Trust Gap</h3>
+      <div class="field">
+        <label>Current Google review strength</label>
+        <div class="sel-group" id="review-strength">
+          <div class="sel-opt" data-val="strong"><div class="sel-dot"><div class="sel-inner"></div></div>Strong — 50+ reviews, 4.7+ stars</div>
+          <div class="sel-opt" data-val="decent"><div class="sel-dot"><div class="sel-inner"></div></div>Decent — 20–49 reviews, 4.5+</div>
+          <div class="sel-opt sel" data-val="weak"><div class="sel-dot"><div class="sel-inner"></div></div>Weak — under 20 reviews</div>
+          <div class="sel-opt" data-val="problem"><div class="sel-dot"><div class="sel-inner"></div></div>Problem — under 4.3 stars</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Monthly leads from Google / search</label>
+        <input type="number" id="google-leads" placeholder="e.g. 15" min="0">
+      </div>
+      <div class="assumption-note" id="review-note">Directional estimate — trust gap varies by industry</div>
+    </div>
+  </div>
+
+  <div class="calc-wrap">
+    <button class="calc-btn" onclick="calculate()">Run Revenue Leak Audit</button>
+  </div>
+
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <div class="loader-txt">Calculating leak estimates...</div>
+  </div>
+
+  <div id="results">
+    <div class="results-header">
+      <h2>Revenue Leak Audit Results</h2>
+      <p id="results-sub">Conservative estimates based on inputs provided</p>
+      <div class="results-client" id="results-client"></div>
+    </div>
+
+    <div class="disclaimer">
+      These numbers are estimates based on the inputs provided and are designed to prioritize workflow fixes, not guarantee recoverable revenue. All figures use conservative assumptions unless otherwise noted. Treat as directional guidance only.
+      <br><br>
+      <strong>Note on categories:</strong> Lead Response Loss and Unchased Estimate Loss are mutually exclusive — the first covers contacts who never reached the estimate stage, the second covers estimates already sent that went cold. They do not overlap.
+    </div>
+
+    <div id="leak-cards"></div>
+
+    <div class="totals-card">
+      <div class="totals-grid">
+        <div class="total-block">
+          <div class="total-lbl">CONSERVATIVE RECOVERABLE LEAK</div>
+          <div class="total-amt" id="total-conservative">$0</div>
+          <div class="total-sub">Annual estimate — most defensible leaks</div>
+        </div>
+        <div class="total-block">
+          <div class="total-lbl">BROADER OPPORTUNITY GAP</div>
+          <div class="total-amt" id="total-broader">$0</div>
+          <div class="total-sub">Annual estimate — includes directional categories</div>
+        </div>
+      </div>
+      <div class="totals-closing">This is what we are here to fix.</div>
+    </div>
+
+    <div class="loader" id="ai-loader" style="display:none">
+      <div class="spinner"></div>
+      <div class="loader-txt">Generating consultant interpretation...</div>
+    </div>
+
+    <div class="synthesis-card" id="synthesis-card" style="display:none">
+      <div class="synthesis-label">CONSULTANT INTERPRETATION</div>
+      <div class="synthesis-text" id="synthesis-text"></div>
+    </div>
+
+    <div class="priority-card" id="priority-card" style="display:none">
+      <div class="priority-label">RECOMMENDED FIX PRIORITY</div>
+      <div id="priority-rows"></div>
+    </div>
+
+    <div class="notes-card">
+      <div class="notes-label">INTERNAL NOTES (not printed)</div>
+      <textarea class="notes-area" placeholder="Client reactions, objections, number confidence, which leak they responded to most, pricing notes..."></textarea>
+    </div>
+
+    <div class="actions">
+      <button class="action-btn" onclick="window.print()">Print / Save PDF</button>
+      <button class="action-btn" onclick="copyResults()">Copy Summary</button>
+      <button class="action-btn primary" onclick="resetForm()">Run New Audit</button>
+    </div>
+  </div>
+
+  </div>
+  <!-- END main-content -->
+
+  <div class="footer">
+    <p>© 2026 4THDMC | EVOLVE LLC. All Rights Reserved. &nbsp;|&nbsp; 4thdmc.com &nbsp;|&nbsp; Consultant Mode — Internal Use Only</p>
+  </div>
+</div>
+
+<script>
+var mode = 'conservative';
+
+var assumptions = {
+  conservative: {
+    desc: 'Lowest defensible estimates',
+    responseRates: { under5:0.02, '1hour':0.07, sameday:0.13, '1to2days':0.22, inconsistent:0.35 },
+    estimateRecovery: 0.12,
+    noshowUnrecovered: { often:0.20, sometimes:0.45, rarely:0.70 },
+    referralRate: 0.05, referralClose: 0.30,
+    referralMissed: { always:0.00, sometimes:0.50, rarely:0.80, never:0.95 },
+    reviewTrustLoss: { strong:0.01, decent:0.04, weak:0.09, problem:0.18 },
+    satisfiedPct: 0.75
+  },
+  moderate: {
+    desc: 'Middle-range — industry average',
+    responseRates: { under5:0.03, '1hour':0.10, sameday:0.18, '1to2days':0.30, inconsistent:0.42 },
+    estimateRecovery: 0.18,
+    noshowUnrecovered: { often:0.30, sometimes:0.55, rarely:0.80 },
+    referralRate: 0.08, referralClose: 0.40,
+    referralMissed: { always:0.00, sometimes:0.60, rarely:0.88, never:1.00 },
+    reviewTrustLoss: { strong:0.02, decent:0.07, weak:0.14, problem:0.25 },
+    satisfiedPct: 0.82
+  },
+  aggressive: {
+    desc: 'Upper range — higher leak scenarios',
+    responseRates: { under5:0.05, '1hour':0.14, sameday:0.24, '1to2days':0.38, inconsistent:0.50 },
+    estimateRecovery: 0.25,
+    noshowUnrecovered: { often:0.40, sometimes:0.65, rarely:0.90 },
+    referralRate: 0.10, referralClose: 0.50,
+    referralMissed: { always:0.00, sometimes:0.70, rarely:0.95, never:1.00 },
+    reviewTrustLoss: { strong:0.03, decent:0.10, weak:0.20, problem:0.35 },
+    satisfiedPct: 0.88
+  }
+};
+
+var ACCESS_CODE = 'evolve2026';
+
+function checkAccess() {
+  var entered = document.getElementById('access-code-input').value.trim();
+  var status = document.getElementById('key-status');
+  if (entered !== ACCESS_CODE) {
+    status.className = 'key-status err';
+    status.textContent = 'Incorrect access code.';
+    return;
+  }
+  document.getElementById('key-gate').style.display = 'none';
+  document.getElementById('client-bar').style.display = 'block';
+  document.getElementById('main-content').style.display = 'block';
+  status.textContent = '';
+}
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.toggle-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('t-'+m).classList.add('active');
+  document.getElementById('mode-desc').textContent = assumptions[m].desc;
+  updateAssumptionNotes();
+}
+
+function updateAssumptionNotes() {
+  var a = assumptions[mode];
+  var speed = getSelected('response-speed') || 'inconsistent';
+  document.getElementById('response-note').textContent = 'Assumes '+Math.round(a.responseRates[speed]*100)+'% of leads lost to slow response';
+  document.getElementById('estimate-note').textContent = 'Assumes '+Math.round(a.estimateRecovery*100)+'% recoverable opportunity rate on unchased estimate value';
+  var refill = getSelected('refill-ability') || 'sometimes';
+  document.getElementById('noshows-note').textContent = 'Assumes '+Math.round((a.noshowUnrecovered[refill]||0.5)*100)+'% of unrecovered cancellations are lost';
+  document.getElementById('referral-note').textContent = 'Assumes '+Math.round(a.referralRate*100)+'% referral rate if asked, '+Math.round(a.referralClose*100)+'% close rate';
+  document.getElementById('review-note').textContent = 'Directional estimate — trust gap varies by industry';
+}
+
+function initSelGroups() {
+  document.querySelectorAll('.sel-group').forEach(function(grp) {
+    grp.querySelectorAll('.sel-opt').forEach(function(opt) {
+      opt.addEventListener('click', function() {
+        grp.querySelectorAll('.sel-opt').forEach(function(o){ o.classList.remove('sel'); });
+        opt.classList.add('sel');
+        updateAssumptionNotes();
+      });
+    });
+  });
+}
+
+function getSelected(groupId) {
+  var el = document.querySelector('#'+groupId+' .sel-opt.sel');
+  return el ? el.getAttribute('data-val') : null;
+}
+
+function num(id) { return parseFloat(document.getElementById(id).value) || 0; }
+
+function fmtExact(n) { return '$' + Math.round(n).toLocaleString(); }
+
+function calculate() {
+  var a = assumptions[mode];
+  var jobVal = num('job-value');
+  var leadsMonth = num('leads-month');
+  var jobsMonth = num('jobs-month');
+  var estimatesMonth = num('estimates-month');
+  var estimateVal = num('estimate-value') || jobVal;
+  var estimateNoFollowup = num('estimate-nofollowup') / 100;
+  var noshows = num('noshows');
+  var apptVal = num('appt-value') || jobVal;
+  var googleLeads = num('google-leads');
+  var responseSpeed = getSelected('response-speed') || 'inconsistent';
+  var refillAbility = getSelected('refill-ability') || 'sometimes';
+  var referralAsk = getSelected('referral-ask') || 'rarely';
+  var reviewStrength = getSelected('review-strength') || 'weak';
+
+  var leadLossMonthly = leadsMonth * a.responseRates[responseSpeed] * jobVal;
+  var estimateLossMonthly = estimatesMonth * estimateVal * estimateNoFollowup * a.estimateRecovery;
+  var noshowLossMonthly = noshows * apptVal * (a.noshowUnrecovered[refillAbility] || 0.5);
+  var referralLossMonthly = (jobsMonth * a.satisfiedPct) * (a.referralMissed[referralAsk]||0) * a.referralRate * a.referralClose * jobVal;
+  var reviewLossMonthly = googleLeads * a.reviewTrustLoss[reviewStrength] * jobVal;
+
+  var conservativeMonthly = leadLossMonthly + estimateLossMonthly + noshowLossMonthly + referralLossMonthly;
+  var broaderMonthly = conservativeMonthly + reviewLossMonthly;
+
+  var results = {
+    leadLoss: { monthly: leadLossMonthly, annual: leadLossMonthly*12 },
+    estimateLoss: { monthly: estimateLossMonthly, annual: estimateLossMonthly*12 },
+    noshowLoss: { monthly: noshowLossMonthly, annual: noshowLossMonthly*12 },
+    referralLoss: { monthly: referralLossMonthly, annual: referralLossMonthly*12 },
+    reviewLoss: { monthly: reviewLossMonthly, annual: reviewLossMonthly*12 },
+    conservativeAnnual: conservativeMonthly*12,
+    broaderAnnual: broaderMonthly*12,
+    inputs: { jobVal, leadsMonth, jobsMonth, estimatesMonth, estimateVal, estimateNoFollowup, noshows, apptVal, googleLeads, responseSpeed, refillAbility, referralAsk, reviewStrength, mode }
+  };
+
+  renderResults(results);
+}
+
+function renderResults(r) {
+  var clientName = document.getElementById('client-name').value.trim();
+  var clientBiz = document.getElementById('client-biz').value.trim();
+  var clientLine = [clientName, clientBiz].filter(Boolean).join(' — ');
+  var today = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+
+  if (clientLine) {
+    document.getElementById('results-client').textContent = clientLine;
+    document.getElementById('ph-client').textContent = clientLine;
+  }
+  document.getElementById('ph-date').textContent = 'Begin Engagement — ' + today;
+  document.getElementById('results-sub').textContent = 'Assumption mode: ' + assumptions[mode].desc + '  |  ' + today;
+
+  var leaks = [
+    { name:'Lead Response Loss', monthly:r.leadLoss.monthly, annual:r.leadLoss.annual, confidence:'High Confidence', badgeClass:'badge-high',
+      ai: getResponseAI(r.inputs.responseSpeed),
+      assumption:'Based on '+Math.round(assumptions[mode].responseRates[r.inputs.responseSpeed]*100)+'% estimated lead loss rate at current response speed',
+      service:'Maps to: Lead Follow-Up Rescue System' },
+    { name:'Unchased Estimate Loss', monthly:r.estimateLoss.monthly, annual:r.estimateLoss.annual, confidence:'High Confidence', badgeClass:'badge-high',
+      ai:'This is revenue that already raised its hand once. The gap is not demand — it is follow-through.',
+      assumption:'Assumes '+Math.round(assumptions[mode].estimateRecovery*100)+'% recoverable opportunity rate on unchased estimate value with a follow-up sequence',
+      service:'Maps to: Admin Drafting + Estimate Follow-Up System' },
+    { name:'No-Show & Cancellation Loss', monthly:r.noshowLoss.monthly, annual:r.noshowLoss.annual, confidence:'Medium Confidence', badgeClass:'badge-medium',
+      ai:'A cancellation is not just an empty slot. It is paid capacity that the current system did not recover.',
+      assumption:'Assumes '+Math.round((assumptions[mode].noshowUnrecovered[r.inputs.refillAbility]||0.5)*100)+'% of cancellations result in unrecovered revenue',
+      service:'Maps to: Client Onboarding Autopilot + Reminder Workflow' },
+    { name:'Referral Gap Loss', monthly:r.referralLoss.monthly, annual:r.referralLoss.annual, confidence:'Medium Confidence', badgeClass:'badge-medium',
+      ai:'Happy customers are not a referral system until the ask becomes consistent.',
+      assumption:'Conservative '+Math.round(assumptions[mode].referralRate*100)+'% referral rate if asked, '+Math.round(assumptions[mode].referralClose*100)+'% close rate on referrals',
+      service:'Maps to: Review & Referral Engine' },
+    { name:'Review Trust Gap', monthly:r.reviewLoss.monthly, annual:r.reviewLoss.annual, confidence:'Directional', badgeClass:'badge-directional',
+      ai:'Weak reviews do not always show up as complaints. Sometimes they show up as silent prospects who never call.',
+      assumption:'Directional estimate only — trust impact varies significantly by industry and local market',
+      service:'Maps to: Review & Referral Engine + Local Trust System' }
+  ];
+
+  var sorted = leaks.slice().sort(function(a,b){ return b.annual - a.annual; });
+  var html = '';
+  sorted.forEach(function(l) {
+    if (l.annual < 1) return;
+    html += '<div class="leak-card"><div class="leak-top"><div>';
+    html += '<div class="leak-name">'+l.name+'</div>';
+    html += '<span class="leak-badge '+l.badgeClass+'">'+l.confidence+'</span>';
+    html += '</div><div class="leak-amounts">';
+    html += '<div class="leak-monthly">'+fmtExact(l.monthly)+'/mo</div>';
+    html += '<div class="leak-annual">'+fmtExact(l.annual)+'/yr</div>';
+    html += '</div></div>';
+    html += '<div class="leak-ai">'+l.ai+'</div>';
+    html += '<div class="leak-assumption">How we estimated this: '+l.assumption+'</div>';
+    html += '<div class="leak-service">'+l.service+'</div></div>';
+  });
+
+  document.getElementById('leak-cards').innerHTML = html;
+  document.getElementById('total-conservative').textContent = fmtExact(r.conservativeAnnual);
+  document.getElementById('total-broader').textContent = fmtExact(r.broaderAnnual);
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('results').scrollIntoView({ behavior:'smooth' });
+
+  var topThree = sorted.filter(function(l){ return l.annual > 0; }).slice(0,3);
+  var prHtml = '';
+  topThree.forEach(function(l,i){
+    prHtml += '<div class="priority-row"><div class="priority-num">'+(i+1)+'</div>';
+    prHtml += '<div><div class="priority-text">'+l.name+' — '+fmtExact(l.annual)+'/yr</div>';
+    prHtml += '<div class="priority-offer">'+l.service+'</div></div></div>';
+  });
+  document.getElementById('priority-rows').innerHTML = prHtml;
+  document.getElementById('priority-card').style.display = 'block';
+
+  generateSynthesis(r, sorted, topThree);
+}
+
+function getResponseAI(speed) {
+  var msgs = {
+    under5:'Lead response is well-handled. The opportunity for additional recovery likely sits elsewhere.',
+    '1hour':'Response within an hour is better than most, but there is still a window where faster competitors may win.',
+    sameday:'Same-day response leaves a window. Research shows first-to-respond wins most service decisions.',
+    '1to2days':'A 1-2 day response window is where significant lead loss happens. This is the most common and fixable leak.',
+    inconsistent:'Inconsistent follow-up is the most expensive pattern. Some leads are handled well; others disappear entirely. The gap is the system, not the intent.'
+  };
+  return msgs[speed] || 'Lead response is a primary driver of conversion in service businesses.';
+}
+
+async function generateSynthesis(r, sorted, topThree) {
+  document.getElementById('ai-loader').style.display = 'block';
+  var clientName = document.getElementById('client-name').value.trim() || 'the business owner';
+  var clientBiz = document.getElementById('client-biz').value.trim() || 'this business';
+  var topNames = topThree.map(function(l){ return l.name+' ('+fmtExact(l.annual)+'/yr)'; }).join(', ');
+
+  var fallback = 'Based on the inputs provided, the largest estimated revenue leaks are '+topThree.map(function(l){return l.name;}).join(', ')+'. The conservative annual estimate of '+fmtExact(r.conservativeAnnual)+' represents the most defensible recovery opportunity. The recommended first priority is '+(topThree[0]||{name:'lead response'}).name+' as it represents the fastest and most direct path to recovered revenue.';
+
+  try {
+    var res = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientName, clientBiz, topNames,
+        conservativeAnnual: fmtExact(r.conservativeAnnual),
+        broaderAnnual: fmtExact(r.broaderAnnual),
+        mode: r.inputs.mode,
+        responseSpeed: r.inputs.responseSpeed,
+        referralAsk: r.inputs.referralAsk,
+        reviewStrength: r.inputs.reviewStrength
+      })
+    });
+    var data = await res.json();
+    document.getElementById('synthesis-text').textContent = (data.success && data.text) ? data.text : fallback;
+  } catch(e) {
+    document.getElementById('synthesis-text').textContent = fallback;
+  }
+
+  document.getElementById('ai-loader').style.display = 'none';
+  document.getElementById('synthesis-card').style.display = 'block';
+}
+
+
+function copyResults() {
+  var conservative = document.getElementById('total-conservative').textContent;
+  var broader = document.getElementById('total-broader').textContent;
+  var synthesis = document.getElementById('synthesis-text').textContent;
+  var priorities = document.getElementById('priority-rows').innerText;
+  var clientName = document.getElementById('client-name').value.trim();
+  var clientBiz = document.getElementById('client-biz').value.trim();
+  var header = '4THDMC | EVOLVE LLC — Revenue Leak Audit';
+  if (clientName || clientBiz) header += '\n' + [clientName, clientBiz].filter(Boolean).join(' — ');
+  var text = header+'\n\nConservative Recoverable Leak: '+conservative+'/yr\nBroader Opportunity Gap: '+broader+'/yr\n\nPriority Order:\n'+priorities+'\n\nConsultant Interpretation:\n'+synthesis;
+  navigator.clipboard.writeText(text).then(function(){ alert('Summary copied to clipboard'); }).catch(function(){ alert('Copy failed — use Print/Save PDF instead'); });
+}
+
+function resetForm() {
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('synthesis-card').style.display = 'none';
+  document.getElementById('priority-card').style.display = 'none';
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+
+initSelGroups();
+updateAssumptionNotes();
+</script>
+</body>
+</html>
