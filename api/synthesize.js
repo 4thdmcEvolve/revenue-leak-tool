@@ -18,6 +18,8 @@ export default async function handler(req, res) {
 
   const prompt = `You are a senior business consultant for 4THDMC | EVOLVE LLC. You are in a paid Begin engagement session with ${clientName} from ${clientBiz}. Write a short consultant interpretation paragraph (3-4 sentences) based on these revenue leak audit results. Be direct and specific. Do not use hype language. Do not make guarantees. Use words like "estimated" and "suggests." Reference the top leaks by name and dollar amount. End with one sentence identifying the single highest-priority fix.
 
+CRITICAL FORMATTING RULE: Output plain prose only. Do not use markdown formatting of any kind — no asterisks, no bold, no headers, no horizontal rules, no bullet points, no italics. Just plain sentences in a single paragraph, as if speaking directly to the consultant reading it on screen.
+
 Top leaks: ${topNames}
 Conservative annual leak: ${conservativeAnnual}
 Broader opportunity gap: ${broaderAnnual}
@@ -27,8 +29,6 @@ Referral ask frequency: ${referralAsk}
 Review strength: ${reviewStrength}`;
 
   try {
-    console.log('ABOUT TO CALL ANTHROPIC');
-
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -43,18 +43,13 @@ Review strength: ${reviewStrength}`;
       })
     });
 
-    console.log('ANTHROPIC HTTP STATUS:', anthropicRes.status);
-
     const data = await anthropicRes.json();
-    console.log('ANTHROPIC FULL RESPONSE:', JSON.stringify(data));
-
     const text = (data.content || []).map(b => b.text || '').join('').trim();
-    console.log('EXTRACTED TEXT LENGTH:', text.length);
 
-    return res.status(200).json({ success: true, text, debugStatus: anthropicRes.status });
+    return res.status(200).json({ success: true, text });
 
   } catch (err) {
-    console.error('SYNTHESIZE CATCH ERROR:', err.message, err.stack);
-    return res.status(500).json({ success: false, error: 'Failed to generate synthesis.', debugError: err.message });
+    console.error('Synthesize error:', err);
+    return res.status(500).json({ success: false, error: 'Failed to generate synthesis.' });
   }
 }
