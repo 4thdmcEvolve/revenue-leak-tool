@@ -68,7 +68,9 @@ Review strength: ${reviewStrength}`;
     });
 
     const data = await anthropicRes.json();
+    console.log('Anthropic raw response:', JSON.stringify(data));
     const text = (data.content || []).map(b => b.text || '').join('').trim();
+    console.log('Extracted text:', text);
 
     return res.status(200).json({ success: true, text });
 
