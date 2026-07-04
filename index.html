@@ -312,6 +312,29 @@ body{font-family:'Inter',sans-serif;background:#f4f3f0;color:#1a1a1a;min-height:
     </div>
   </div>
 
+  <div class="grid">
+    <div class="card" style="grid-column:1/-1">
+      <div class="card-label">PRICING & MARGIN</div>
+      <h3>Pricing Gap Loss</h3>
+      <p style="font-size:11px;color:#aaa;margin:-4px 0 12px;line-height:1.5;font-style:italic;">Revenue left on the table because the business is underpriced relative to what the market will bear. Uses average job value already entered above.</p>
+      <div class="field-row">
+        <div class="field">
+          <label>Estimated market rate for this service type ($)</label>
+          <input type="number" id="market-rate" placeholder="e.g. 650" min="0">
+        </div>
+        <div class="field">
+          <label>Current pricing position</label>
+          <div class="sel-group" id="pricing-position">
+            <div class="sel-opt" data-val="underpriced"><div class="sel-dot"><div class="sel-inner"></div></div>Underpriced — below what the market supports</div>
+            <div class="sel-opt sel" data-val="at_market"><div class="sel-dot"><div class="sel-inner"></div></div>At market — priced in line with competitors</div>
+            <div class="sel-opt" data-val="overpriced"><div class="sel-dot"><div class="sel-inner"></div></div>Overpriced — above market rate</div>
+          </div>
+        </div>
+      </div>
+      <div class="assumption-note" id="pricing-note">Enter market rate and pricing position to calculate gap</div>
+    </div>
+  </div>
+
   <div class="calc-wrap">
     <button class="calc-btn" onclick="calculate()">Run Revenue Leak Audit</button>
   </div>
@@ -458,6 +481,18 @@ function updateAssumptionNotes() {
   document.getElementById('noshows-note').textContent = 'Assumes '+Math.round((a.noshowUnrecovered[refill]||0.5)*100)+'% of unrecovered cancellations are lost';
   document.getElementById('referral-note').textContent = 'Assumes '+Math.round(a.referralRate*100)+'% referral rate if asked, '+Math.round(a.referralClose*100)+'% close rate';
   document.getElementById('review-note').textContent = 'Directional estimate — trust gap varies by industry';
+  var mRate = parseFloat(document.getElementById('market-rate') && document.getElementById('market-rate').value) || 0;
+  var jVal = parseFloat(document.getElementById('job-value') && document.getElementById('job-value').value) || 0;
+  var pPos = getSelected('pricing-position') || 'at_market';
+  if (pPos === 'underpriced' && mRate > jVal && mRate > 0 && jVal > 0) {
+    document.getElementById('pricing-note').textContent = 'Estimated gap: $' + (mRate - jVal) + ' per job vs market rate of $' + mRate;
+  } else if (pPos === 'at_market') {
+    document.getElementById('pricing-note').textContent = 'No gap calculated — pricing at market rate';
+  } else if (pPos === 'overpriced') {
+    document.getElementById('pricing-note').textContent = 'Overpriced — pricing gap shows as zero, consider close rate impact';
+  } else {
+    document.getElementById('pricing-note').textContent = 'Enter market rate and pricing position to calculate gap';
+  }
 }
 
 function initSelGroups() {
@@ -492,10 +527,12 @@ function calculate() {
   var noshows = num('noshows');
   var apptVal = num('appt-value') || jobVal;
   var googleLeads = num('google-leads');
+  var marketRate = num('market-rate');
   var responseSpeed = getSelected('response-speed') || 'inconsistent';
   var refillAbility = getSelected('refill-ability') || 'sometimes';
   var referralAsk = getSelected('referral-ask') || 'rarely';
   var reviewStrength = getSelected('review-strength') || 'weak';
+  var pricingPosition = getSelected('pricing-position') || 'at_market';
 
   var leadLossMonthly = leadsMonth * a.responseRates[responseSpeed] * jobVal;
   var estimateLossMonthly = estimatesMonth * estimateVal * estimateNoFollowup * a.estimateRecovery;
@@ -503,7 +540,13 @@ function calculate() {
   var referralLossMonthly = (jobsMonth * a.satisfiedPct) * (a.referralMissed[referralAsk]||0) * a.referralRate * a.referralClose * jobVal;
   var reviewLossMonthly = googleLeads * a.reviewTrustLoss[reviewStrength] * jobVal;
 
-  var conservativeMonthly = leadLossMonthly + estimateLossMonthly + noshowLossMonthly + referralLossMonthly;
+  // Pricing gap — only applies when underpriced
+  var pricingGapMonthly = 0;
+  if (pricingPosition === 'underpriced' && marketRate > jobVal) {
+    pricingGapMonthly = (marketRate - jobVal) * jobsMonth;
+  }
+
+  var conservativeMonthly = leadLossMonthly + estimateLossMonthly + noshowLossMonthly + referralLossMonthly + pricingGapMonthly;
   var broaderMonthly = conservativeMonthly + reviewLossMonthly;
 
   var results = {
@@ -512,12 +555,13 @@ function calculate() {
     noshowLoss: { monthly: noshowLossMonthly, annual: noshowLossMonthly*12 },
     referralLoss: { monthly: referralLossMonthly, annual: referralLossMonthly*12 },
     reviewLoss: { monthly: reviewLossMonthly, annual: reviewLossMonthly*12 },
+    pricingLoss: { monthly: pricingGapMonthly, annual: pricingGapMonthly*12 },
     conservativeAnnual: conservativeMonthly*12,
     broaderAnnual: broaderMonthly*12,
-    inputs: { jobVal, leadsMonth, jobsMonth, estimatesMonth, estimateVal, estimateNoFollowup, noshows, apptVal, googleLeads, responseSpeed, refillAbility, referralAsk, reviewStrength, mode }
+    inputs: { jobVal, leadsMonth, jobsMonth, estimatesMonth, estimateVal, estimateNoFollowup, noshows, apptVal, googleLeads, marketRate, pricingPosition, responseSpeed, refillAbility, referralAsk, reviewStrength, mode }
   };
 
-  lastInputs = { jobVal, leadsMonth, jobsMonth, estimatesMonth, estimateVal, estimateNoFollowup, noshows, apptVal, googleLeads, responseSpeed, refillAbility, referralAsk, reviewStrength };
+  lastInputs = { jobVal, leadsMonth, jobsMonth, estimatesMonth, estimateVal, estimateNoFollowup, noshows, apptVal, googleLeads, marketRate, pricingPosition, responseSpeed, refillAbility, referralAsk, reviewStrength };
 
   renderResults(results);
 }
@@ -555,7 +599,17 @@ function renderResults(r) {
     { name:'Review Trust Gap', monthly:r.reviewLoss.monthly, annual:r.reviewLoss.annual, confidence:'Directional', badgeClass:'badge-directional',
       ai:'Weak reviews do not always show up as complaints. Sometimes they show up as silent prospects who never call.',
       assumption:'Directional estimate only — trust impact varies significantly by industry and local market',
-      service:'Maps to: Review & Referral Engine + Local Trust System' }
+      service:'Maps to: Review & Referral Engine + Local Trust System' },
+    { name:'Pricing Gap Loss', monthly:r.pricingLoss.monthly, annual:r.pricingLoss.annual, confidence:'Medium Confidence', badgeClass:'badge-medium',
+      ai: r.inputs.pricingPosition === 'underpriced' && r.pricingLoss.annual > 0
+        ? 'Every completed job is leaving money on the table. This is not a demand problem — it is a pricing confidence problem that compounds with every invoice sent.'
+        : r.inputs.pricingPosition === 'overpriced'
+        ? 'Being priced above market may be contributing to lower close rates on estimates. Consider whether the value proposition fully justifies the premium.'
+        : 'Pricing appears to be at market rate. This category shows no current gap.',
+      assumption: r.inputs.pricingPosition === 'underpriced' && r.inputs.marketRate > r.inputs.jobVal
+        ? 'Gap of $' + (r.inputs.marketRate - r.inputs.jobVal) + ' per job vs estimated market rate of $' + r.inputs.marketRate
+        : 'No pricing gap calculated — position is at market or overpriced',
+      service:'Maps to: Pricing Strategy + Value Proposition Review' }
   ];
 
   var sorted = leaks.slice().sort(function(a,b){ return b.annual - a.annual; });
@@ -663,7 +717,10 @@ function exportToBeginTool() {
     var noshow = inp.noshows * inp.apptVal * (a.noshowUnrecovered[inp.refillAbility] || 0.5) * 12;
     var referral = (inp.jobsMonth * a.satisfiedPct) * (a.referralMissed[inp.referralAsk] || 0) * a.referralRate * a.referralClose * inp.jobVal * 12;
     var review = inp.googleLeads * a.reviewTrustLoss[inp.reviewStrength] * inp.jobVal * 12;
-    return { lead: Math.round(lead), estimate: Math.round(estimate), noshow: Math.round(noshow), referral: Math.round(referral), review: Math.round(review) };
+    var pricing = (inp.pricingPosition === 'underpriced' && inp.marketRate > inp.jobVal)
+      ? (inp.marketRate - inp.jobVal) * inp.jobsMonth * 12
+      : 0;
+    return { lead: Math.round(lead), estimate: Math.round(estimate), noshow: Math.round(noshow), referral: Math.round(referral), review: Math.round(review), pricing: Math.round(pricing) };
   }
 
   var con = calcCategory('conservative');
@@ -686,7 +743,7 @@ function exportToBeginTool() {
       lead_acquisition: { low: con.lead, high: mod.lead },
       conversion:       { low: con.estimate, high: mod.estimate },
       retention:        { low: con.noshow, high: mod.noshow },
-      pricing_margin:   { low: 0, high: 0 },
+      pricing_margin:   { low: con.pricing, high: mod.pricing },
       expansion_revenue:{ low: con.referral, high: mod.referral },
       trust_visibility: { low: con.review, high: mod.review }
     },
