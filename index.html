@@ -375,6 +375,7 @@ body{font-family:'Inter',sans-serif;background:#f4f3f0;color:#1a1a1a;min-height:
     <div class="actions">
       <button class="action-btn" onclick="window.print()">Print / Save PDF</button>
       <button class="action-btn" onclick="copyResults()">Copy Summary</button>
+      <button class="action-btn" onclick="exportToBeginTool()">Export to Begin Session Tool</button>
       <button class="action-btn primary" onclick="resetForm()">Run New Audit</button>
     </div>
   </div>
@@ -389,6 +390,7 @@ body{font-family:'Inter',sans-serif;background:#f4f3f0;color:#1a1a1a;min-height:
 
 <script>
 var mode = 'conservative';
+var lastInputs = null;
 
 var assumptions = {
   conservative: {
@@ -514,6 +516,8 @@ function calculate() {
     broaderAnnual: broaderMonthly*12,
     inputs: { jobVal, leadsMonth, jobsMonth, estimatesMonth, estimateVal, estimateNoFollowup, noshows, apptVal, googleLeads, responseSpeed, refillAbility, referralAsk, reviewStrength, mode }
   };
+
+  lastInputs = { jobVal, leadsMonth, jobsMonth, estimatesMonth, estimateVal, estimateNoFollowup, noshows, apptVal, googleLeads, responseSpeed, refillAbility, referralAsk, reviewStrength };
 
   renderResults(results);
 }
@@ -646,10 +650,68 @@ function copyResults() {
   navigator.clipboard.writeText(text).then(function(){ alert('Summary copied to clipboard'); }).catch(function(){ alert('Copy failed — use Print/Save PDF instead'); });
 }
 
+function exportToBeginTool() {
+  if (!lastInputs) { alert('Run the audit first before exporting.'); return; }
+
+  var inp = lastInputs;
+
+  // Calculate per-category values for both conservative and moderate modes
+  function calcCategory(modeKey) {
+    var a = assumptions[modeKey];
+    var lead = inp.leadsMonth * a.responseRates[inp.responseSpeed] * inp.jobVal * 12;
+    var estimate = inp.estimatesMonth * inp.estimateVal * inp.estimateNoFollowup * a.estimateRecovery * 12;
+    var noshow = inp.noshows * inp.apptVal * (a.noshowUnrecovered[inp.refillAbility] || 0.5) * 12;
+    var referral = (inp.jobsMonth * a.satisfiedPct) * (a.referralMissed[inp.referralAsk] || 0) * a.referralRate * a.referralClose * inp.jobVal * 12;
+    var review = inp.googleLeads * a.reviewTrustLoss[inp.reviewStrength] * inp.jobVal * 12;
+    return { lead: Math.round(lead), estimate: Math.round(estimate), noshow: Math.round(noshow), referral: Math.round(referral), review: Math.round(review) };
+  }
+
+  var con = calcCategory('conservative');
+  var mod = calcCategory('moderate');
+
+  var clientName = document.getElementById('client-name').value.trim();
+  var clientBiz = document.getElementById('client-biz').value.trim();
+
+  var payload = {
+    client_name: clientName,
+    business_name: clientBiz,
+    industry: '',
+    revenue_range: '',
+    team_size: '',
+    key_platforms: [],
+    pdi_summary: '',
+    t1_research: '',
+    t2_research: '',
+    calculator_benchmarks: {
+      lead_acquisition: { low: con.lead, high: mod.lead },
+      conversion:       { low: con.estimate, high: mod.estimate },
+      retention:        { low: con.noshow, high: mod.noshow },
+      pricing_margin:   { low: 0, high: 0 },
+      expansion_revenue:{ low: con.referral, high: mod.referral },
+      trust_visibility: { low: con.review, high: mod.review }
+    },
+    surface_safe: [],
+    hold_for_proposal: []
+  };
+
+  var json = JSON.stringify(payload, null, 2);
+  var blob = new Blob([json], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  var filename = (clientName || 'client') + '_begin_session.json';
+  a.href = url;
+  a.download = filename.toLowerCase().replace(/\s+/g, '_');
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function resetForm() {
   document.getElementById('results').style.display = 'none';
   document.getElementById('synthesis-card').style.display = 'none';
   document.getElementById('priority-card').style.display = 'none';
+  lastInputs = null;
   window.scrollTo({ top:0, behavior:'smooth' });
 }
 
