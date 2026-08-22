@@ -448,20 +448,41 @@ var assumptions = {
   }
 };
 
-var ACCESS_CODE = 'Leak2026audit';
+var ACCESS_CODE_VALIDATED = false;
 
 function checkAccess() {
   var entered = document.getElementById('access-code-input').value.trim();
   var status = document.getElementById('key-status');
-  if (entered !== ACCESS_CODE) {
+  if (!entered) {
     status.className = 'key-status err';
-    status.textContent = 'Incorrect access code.';
+    status.textContent = 'Please enter your access code.';
     return;
   }
-  document.getElementById('key-gate').style.display = 'none';
-  document.getElementById('client-bar').style.display = 'block';
-  document.getElementById('main-content').style.display = 'block';
-  status.textContent = '';
+  status.className = 'key-status';
+  status.textContent = 'Checking...';
+
+  fetch('/api/access', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: entered })
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if (data.success) {
+      ACCESS_CODE_VALIDATED = true;
+      document.getElementById('key-gate').style.display = 'none';
+      document.getElementById('client-bar').style.display = 'block';
+      document.getElementById('main-content').style.display = 'block';
+      status.textContent = '';
+    } else {
+      status.className = 'key-status err';
+      status.textContent = data.error || 'Incorrect access code.';
+    }
+  })
+  .catch(function() {
+    status.className = 'key-status err';
+    status.textContent = 'Connection error. Please try again.';
+  });
 }
 
 function setMode(m) {
