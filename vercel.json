@@ -2,10 +2,12 @@
   "version": 2,
   "builds": [
     { "src": "index.html", "use": "@vercel/static" },
-    { "src": "api/synthesize.js", "use": "@vercel/node" }
+    { "src": "api/synthesize.js", "use": "@vercel/node" },
+    { "src": "api/access.js", "use": "@vercel/node" }
   ],
   "routes": [
     { "src": "/api/synthesize", "dest": "/api/synthesize.js" },
+    { "src": "/api/access", "dest": "/api/access.js" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
